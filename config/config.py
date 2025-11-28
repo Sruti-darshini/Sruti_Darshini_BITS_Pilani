@@ -26,10 +26,10 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 10
     pages_per_chunk: int = 3  # Process large docs in chunks to avoid truncation
 
-    # Image Processing
-    pdf_dpi: int = 300  # DPI for PDF to image conversion (higher = better quality, 200-400 recommended)
-    image_quality: int = 95  # JPEG quality (1-100, higher = better)
-    enable_image_enhancement: bool = True  # Enable contrast/sharpness enhancement
+    # Image Processing (optimized for low memory environments like Render free tier)
+    pdf_dpi: int = 200  # DPI for PDF to image conversion (150 for low memory, 200-300 for better quality)
+    image_quality: int = 80  # JPEG quality (1-100, 75 for low memory, 85-95 for better quality)
+    enable_image_enhancement: bool = False  # Disable for low memory (uses extra RAM)
 
     # LLM Settings
     llm_temperature: float = 0.1

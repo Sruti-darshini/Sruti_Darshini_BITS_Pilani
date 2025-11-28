@@ -189,7 +189,6 @@ def repair_json(text: str, max_attempts: int = 5) -> Optional[Dict[str, Any]]:
         Parsed JSON dict or None if all attempts fail
     """
     if not text or not text.strip():
-        logger.warning("Empty JSON string provided")
         return None
 
     # Strategy 1: Try direct parse
