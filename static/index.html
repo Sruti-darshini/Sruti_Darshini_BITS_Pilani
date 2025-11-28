@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice OCR - Upload & Extract</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 Invoice OCR System</h1>
+            <p>Upload your invoice to extract line items automatically</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-icon">📁</div>
+                    <h2>Upload Invoice</h2>
+                    <p>Drag & drop your invoice file here or click to browse</p>
+                    <p class="file-types">Supported: PDF, JPEG, PNG, HEIC</p>
+                    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.heic" hidden>
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose File
+                    </button>
+                </div>
+
+                <div class="selected-file" id="selectedFile" style="display: none;">
+                    <div class="file-info">
+                        <span class="file-name" id="fileName"></span>
+                        <span class="file-size" id="fileSize"></span>
+                    </div>
+                    <button class="btn-primary" id="processBtn">Process Invoice</button>
+                    <button class="btn-secondary" id="cancelBtn">Cancel</button>
+                </div>
+
+                <div class="processing" id="processing" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing invoice...</p>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="results-header">
+                    <h2>📊 Extraction Results</h2>
+                    <button class="btn-secondary" id="newUploadBtn">Upload Another</button>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="summary-cards">
+                    <div class="card">
+                        <div class="card-label">Total Items</div>
+                        <div class="card-value" id="totalItems">0</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">Reconciled Amount</div>
+                        <div class="card-value" id="reconciledAmount">$0.00</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-label">Pages Processed</div>
+                        <div class="card-value" id="pagesProcessed">0</div>
+                    </div>
+                </div>
+
+                <!-- Line Items Table -->
+                <div class="table-container">
+                    <h3>Line Items by Page</h3>
+                    <div id="lineItemsContainer"></div>
+                </div>
+
+                <!-- Export Options -->
+                <div class="export-options">
+                    <button class="btn-secondary" id="exportJsonBtn">📥 Export JSON</button>
+                    <button class="btn-secondary" id="exportCsvBtn">📥 Export CSV</button>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-box">
+                    <div class="error-icon">⚠️</div>
+                    <h3>Error Processing Invoice</h3>
+                    <p id="errorMessage"></p>
+                    <button class="btn-primary" id="retryBtn">Try Again</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by LLM-based OCR | <a href="/docs" target="_blank">API Docs</a></p>
+        </footer>
+    </div>
+
+    <script src="static/script.js"></script>
+</body>
+</html>

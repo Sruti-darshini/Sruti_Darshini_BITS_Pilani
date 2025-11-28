@@ -1,0 +1,18 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+
+# Image Processing
+pdf2image==1.17.0
+Pillow==11.0.0
+pillow-heif==0.20.0
+
+# LLM Integration
+google-generativeai==0.8.3
+openai==1.55.3
+
+# HTTP Client
+httpx==0.28.1
