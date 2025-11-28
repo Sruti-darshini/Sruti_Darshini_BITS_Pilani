@@ -168,22 +168,29 @@ def validate_bill_item(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def validate_page_type(page_type: str) -> str:
     """
-    Validate page type
+    Validate page type - MUST NEVER RETURN NULL
 
     Args:
         page_type: Raw page type
 
     Returns:
-        Valid page type
+        Valid page type (always one of: "Bill Detail", "Final Bill", "Pharmacy")
     """
     valid_types = ["Bill Detail", "Final Bill", "Pharmacy"]
 
+    # Handle null or empty
+    if not page_type:
+        logger.warning(f"page_type is null/empty, defaulting to 'Bill Detail'")
+        return "Bill Detail"
+
+    # Exact match
     if page_type in valid_types:
         return page_type
 
     # Try case-insensitive match
+    page_type_str = str(page_type).strip()
     for valid_type in valid_types:
-        if page_type.lower() == valid_type.lower():
+        if page_type_str.lower() == valid_type.lower():
             return valid_type
 
     # Default to "Bill Detail"

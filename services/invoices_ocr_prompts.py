@@ -190,10 +190,67 @@ EXTRACTION RULES:
    - Same name, same values (all fields identical) → Still extract EACH occurrence
    - Same name, different values → Definitely extract each as separate item
 
-4. PAGE CLASSIFICATION:
-   - "Bill Detail" - main itemized charges
-   - "Final Bill" - summary page with totals
-   - "Pharmacy" - pharmacy/medicine charges
+4. PAGE CLASSIFICATION (MUST ALWAYS BE SET - NEVER NULL):
+
+   You MUST classify each page as one of these three types:
+
+   A) "Bill Detail" - Pages with CATEGORIZED sections and sub-details
+      Characteristics:
+      - Has section headers (ROOM CHARGES, CONSULTATION CHARGES, LABORATORY CHARGES, etc.)
+      - Shows "SubTotal:" for each category/section
+      - Items are grouped under category headers
+      - May have nested structure (category → items → subtotal)
+      - Usually the main detailed breakdown pages
+      Example:
+      ```
+      ROOM CHARGES                    SubTotal: ₹4500
+        ICU ROOM RENT CHARGES  ...
+      ADMISSION CHARGES               SubTotal: ₹100.00
+        IP REGISTRATION FEES   ...
+      LABORATORY CHARGES              SubTotal: ₹23030.00
+        PUS CULTURE & SENSITIVITY ...
+        Complete Blood Count ...
+      ```
+
+   B) "Final Bill" - Summary/consolidated page with final totals
+      Characteristics:
+      - Usually titled "FINAL BILL", "DETAIL FINAL BILL", "BILL SUMMARY"
+      - Shows department-wise totals ("Total of PATHOLOGY:", "Total of PHARMACY CHARGE:")
+      - Has "Grand Total:", "Net Total:", "Final Amount:"
+      - Consolidates charges from multiple departments
+      - May show overall summary of the entire invoice
+      Example:
+      ```
+      DETAIL FINAL BILL
+      Laboratory tests...
+      Total of PATHOLOGY: 10098.00
+      PHARMACY CHARGE
+      Total of PHARMACY CHARGE: 52868.25
+      Grand Total: 73420.25
+      ```
+
+   C) "Pharmacy" - Simple list of pharmacy/medicine items WITHOUT complex categorization
+      Characteristics:
+      - Plain list of medicines/pharmacy items
+      - NO category headers or subtotals between items
+      - Just item name, batch, quantity, rate, amount
+      - No nested structure - flat list
+      - Typically shows: Medicine name | Batch | Exp | Qty | Rate | Amount
+      Example:
+      ```
+      Telma 20mg        BATCH123  1  100.00  100.00
+      Okamel-500        BATCH456  2  50.00   100.00
+      Paracetamol 500mg BATCH789  3  10.00   30.00
+      ```
+
+   CRITICAL RULES FOR PAGE TYPE:
+   - EVERY page MUST have a page_type - NEVER leave it null or empty
+   - If unclear, default to "Bill Detail"
+   - Look for these indicators:
+     * Section headers with "SubTotal" → "Bill Detail"
+     * "Grand Total", "Final Bill" in title → "Final Bill"
+     * Flat medicine list without sections → "Pharmacy"
+   - Same invoice can have multiple page types across different pages
 
 5. SKIP THESE (NOT line items):
    - Subtotals ("Total of X: ...", "Sub Total: ...")
@@ -247,6 +304,16 @@ VALIDATION CHECKS (Do these before responding):
    - If amount is negative → Likely a discount, remove it
    - Only actual products/services should remain
 
+✓ Check 8: PAGE TYPE IS ALWAYS SET
+   - EVERY page MUST have a page_type value
+   - Check each page in your JSON
+   - If page_type is null, empty, or missing → Set to "Bill Detail"
+   - Valid values ONLY: "Bill Detail", "Final Bill", "Pharmacy"
+   - Look at page characteristics to choose correct type:
+     * Has section headers + SubTotals → "Bill Detail"
+     * Has Grand Total + department totals → "Final Bill"
+     * Flat list of medicines → "Pharmacy"
+
 ⚠️ CRITICAL: If you're extracting from a POOR QUALITY scan:
 - Expect to work harder to find all rows
 - Some text will be faint - that's OK, extract what you can
@@ -282,6 +349,38 @@ CORRECT JSON:
 Note: 4 ACTUAL items in table → 4 items in JSON ✓
 Note: "Sub Total", "GST DISCOUNT", "Total" are NOT included (correctly skipped) ✓
 Note: Item #3 has qty=1.0 (not 2.0) - read from correct row ✓
+
+EXAMPLE - PAGE TYPE CLASSIFICATION:
+
+Page 1 shows:
+```
+ROOM CHARGES                    SubTotal: ₹4500
+  ICU ROOM RENT CHARGES  3  ₹15000.00  ₹45000.00
+ADMISSION CHARGES               SubTotal: ₹100.00
+  IP REGISTRATION FEES   1  ₹100.00    ₹100.00
+LABORATORY CHARGES              SubTotal: ₹23030.00
+  Complete Blood Count   1  ₹450.00    ₹450.00
+```
+→ page_type: "Bill Detail" (has section headers and SubTotals)
+
+Page 2 shows:
+```
+DETAIL FINAL BILL
+Laboratory tests...
+Total of PATHOLOGY: 10098.00
+PHARMACY CHARGE
+Total of PHARMACY CHARGE: 52868.25
+Grand Total: 73420.25
+```
+→ page_type: "Final Bill" (shows grand total and department totals)
+
+Page 3 shows:
+```
+Telma 20mg        BATCH123  1  100.00  100.00
+Okamel-500        BATCH456  2   50.00  100.00
+Paracetamol 500mg BATCH789  3   10.00   30.00
+```
+→ page_type: "Pharmacy" (flat list of medicines, no sections)
 
 EXAMPLE - POOR QUALITY SCAN WITH MISSING ROWS:
 
@@ -335,6 +434,10 @@ FINAL REMINDER:
 - DO NOT extract tax summary rows (GST, CGST, SGST when shown as totals)
 - Match columns CORRECTLY (don't mix up rate/qty/amount)
 - COUNT ROWS and verify you didn't miss any ACTUAL billable items
+- ALWAYS SET page_type for EVERY page (NEVER null/empty)
+  * Section headers + SubTotals = "Bill Detail"
+  * Grand Total + Final Bill title = "Final Bill"
+  * Flat medicine list = "Pharmacy"
 - For poor scans, work extra hard to find ALL rows
 - Better to have partial data than missing rows
 - Verify your extraction before responding
@@ -368,7 +471,7 @@ def get_json_schema() -> Dict[str, Any]:
                         "page_type": {
                             "type": "string",
                             "enum": ["Bill Detail", "Final Bill", "Pharmacy"],
-                            "description": "Type of page - must be one of: Bill Detail, Final Bill, or Pharmacy"
+                            "description": "Type of page - REQUIRED, NEVER NULL. Must be one of: 'Bill Detail' (pages with section headers and SubTotals), 'Final Bill' (summary page with Grand Total and department totals), or 'Pharmacy' (flat list of medicines without sections). Analyze page structure to choose correct type."
                         },
                         "bill_items": {
                             "type": "array",
