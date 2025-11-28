@@ -48,16 +48,10 @@ def exponential_backoff_retry(
                     last_exception = e
 
                     if attempt < max_retries:
-                        logger.warning(
-                            f"Attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: {str(e)}. "
-                            f"Retrying in {delay:.2f}s..."
-                        )
                         time.sleep(delay)
                         delay = min(delay * exponential_base, max_delay)
                     else:
-                        logger.error(
-                            f"All {max_retries + 1} attempts failed for {func.__name__}: {str(e)}"
-                        )
+                        raise last_exception
 
             # If we get here, all retries failed
             raise last_exception
@@ -117,10 +111,6 @@ def retry_with_config(
             last_exception = e
 
             if attempt < config.max_retries:
-                logger.warning(
-                    f"Attempt {attempt + 1}/{config.max_retries + 1} failed: {str(e)}. "
-                    f"Retrying in {delay:.2f}s..."
-                )
                 time.sleep(delay)
                 delay = min(delay * config.exponential_base, config.max_delay)
             else:

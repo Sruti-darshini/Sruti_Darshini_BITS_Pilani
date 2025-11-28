@@ -244,19 +244,16 @@ Return ONLY the JSON with the EXTRACTED DATA from the invoice. No markdown forma
 
         if parsed_json is None:
             logger.error("Failed to parse JSON after all repair attempts")
-            logger.error(f"Response text (first 2000 chars): {response_text[:2000]}")
+            logger.debug(f"Response text (first 2000 chars): {response_text[:2000]}")
             # Return empty structure instead of raising error
-            logger.warning("Returning empty structure due to parse failure")
             return get_empty_invoice_structure(), token_usage
 
         # Validate structure
         if not validate_invoice_structure(parsed_json):
-            logger.warning("Parsed JSON has invalid invoice structure")
             # Check if we have some data
             if parsed_json.get("pagewise_line_items"):
-                logger.info(f"Found {len(parsed_json['pagewise_line_items'])} pages despite validation issues, keeping partial data")
+                logger.debug(f"Found {len(parsed_json['pagewise_line_items'])} pages despite validation issues, keeping partial data")
             else:
-                logger.warning("No valid data found, using empty structure")
                 parsed_json = get_empty_invoice_structure()
 
         return parsed_json, token_usage
@@ -407,7 +404,6 @@ Return ONLY the JSON object. No markdown formatting, no code blocks."""
 
         # Validate structure
         if not validate_invoice_structure(parsed_json):
-            logger.warning("Parsed JSON has invalid invoice structure, using empty structure")
             parsed_json = get_empty_invoice_structure()
 
         return parsed_json, token_usage

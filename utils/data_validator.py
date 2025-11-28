@@ -56,13 +56,11 @@ def validate_numeric_field(value: Any, field_name: str, default: float = 0.0) ->
 
         # Check for negative values (shouldn't happen in invoices)
         if float_value < 0:
-            logger.warning(f"{field_name} is negative: {float_value}, using absolute value")
             float_value = abs(float_value)
 
         return float_value
 
-    except (ValueError, TypeError) as e:
-        logger.warning(f"Invalid {field_name}: {value}, using default {default}. Error: {e}")
+    except (ValueError, TypeError):
         return default
 
 
@@ -180,7 +178,6 @@ def validate_page_type(page_type: str) -> str:
 
     # Handle null or empty
     if not page_type:
-        logger.warning(f"page_type is null/empty, defaulting to 'Bill Detail'")
         return "Bill Detail"
 
     # Exact match
@@ -194,7 +191,6 @@ def validate_page_type(page_type: str) -> str:
             return valid_type
 
     # Default to "Bill Detail"
-    logger.warning(f"Invalid page_type: {page_type}, defaulting to 'Bill Detail'")
     return "Bill Detail"
 
 
@@ -224,7 +220,6 @@ def validate_and_clean_invoice_data(data: Dict[str, Any]) -> Dict[str, Any]:
 
     for page_data in pagewise_items:
         if not isinstance(page_data, dict):
-            logger.warning(f"Skipping invalid page data: {type(page_data)}")
             continue
 
         validated_page = {
@@ -236,12 +231,10 @@ def validate_and_clean_invoice_data(data: Dict[str, Any]) -> Dict[str, Any]:
         bill_items = page_data.get("bill_items", [])
 
         if not isinstance(bill_items, list):
-            logger.warning(f"Invalid bill_items type: {type(bill_items)}, expected list")
             bill_items = []
 
         for item in bill_items:
             if not isinstance(item, dict):
-                logger.warning(f"Skipping invalid bill item: {type(item)}")
                 continue
 
             validated_item = validate_bill_item(item)

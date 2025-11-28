@@ -187,8 +187,7 @@ class InvoicesOCRService:
             logger.debug("Image enhancement applied")
             return image
 
-        except Exception as e:
-            logger.warning(f"Image enhancement failed: {e}, using original")
+        except Exception:
             return image
 
     def _process_image_file(self, image_path: str) -> List[str]:
@@ -264,8 +263,7 @@ class InvoicesOCRService:
                     )
                     bill_items.append(bill_item)
                     total_count += 1
-                except Exception as e:
-                    logger.warning(f"Failed to create BillItem from {item_data}: {e}")
+                except Exception:
                     continue
 
             # Get page_type from extracted data, ensure it's never null
