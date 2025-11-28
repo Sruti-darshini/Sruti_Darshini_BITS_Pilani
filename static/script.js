@@ -145,7 +145,7 @@ function displayResults(data) {
 
     // Update summary cards
     document.getElementById('totalItems').textContent = data.total_item_count;
-    document.getElementById('reconciledAmount').textContent = '$' + totalAmount.toFixed(2);
+    document.getElementById('reconciledAmount').textContent = totalAmount.toFixed(2);
     document.getElementById('pagesProcessed').textContent = data.pagewise_line_items.length;
 
     // Display line items by page
@@ -176,8 +176,8 @@ function displayResults(data) {
                     <tr>
                         <td>${item.item_name || 'N/A'}</td>
                         <td>${item.item_quantity || 0}</td>
-                        <td>$${(item.item_rate || 0).toFixed(2)}</td>
-                        <td class="amount">$${(item.item_amount || 0).toFixed(2)}</td>
+                        <td>${(item.item_rate || 0).toFixed(2)}</td>
+                        <td class="amount">${(item.item_amount || 0).toFixed(2)}</td>
                     </tr>
                 `).join('')}
             </tbody>

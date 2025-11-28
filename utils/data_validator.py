@@ -204,25 +204,30 @@ def validate_and_clean_invoice_data(data: Dict[str, Any]) -> Dict[str, Any]:
 def remove_duplicate_items(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Remove duplicate items from invoice data
-
+    
+    IMPORTANT: Only removes duplicates WITHIN each page, not across pages.
+    This preserves legitimate repeated charges across different pages.
+    
     Args:
         data: Invoice data
-
+        
     Returns:
-        Data with duplicates removed
+        Data with duplicates removed (per page only)
     """
-    seen_items = set()
     cleaned_data = {
         "pagewise_line_items": []
     }
-
+    
     for page_data in data.get("pagewise_line_items", []):
+        # Track duplicates PER PAGE only
+        seen_items_on_page = set()
+        
         cleaned_page = {
             "page_no": page_data["page_no"],
             "page_type": page_data["page_type"],
             "bill_items": []
         }
-
+        
         for item in page_data.get("bill_items", []):
             # Create a signature for the item
             item_signature = (
@@ -231,14 +236,15 @@ def remove_duplicate_items(data: Dict[str, Any]) -> Dict[str, Any]:
                 item['item_rate'],
                 item['item_amount']
             )
-
-            if item_signature not in seen_items:
-                seen_items.add(item_signature)
+            
+            # Only check for duplicates within THIS page
+            if item_signature not in seen_items_on_page:
+                seen_items_on_page.add(item_signature)
                 cleaned_page['bill_items'].append(item)
             else:
-                logger.debug(f"Removing duplicate item: {item['item_name']}")
-
+                logger.debug(f"Removing duplicate item on page {page_data['page_no']}: {item['item_name']}")
+        
         if cleaned_page['bill_items']:
             cleaned_data['pagewise_line_items'].append(cleaned_page)
-
+    
     return cleaned_data

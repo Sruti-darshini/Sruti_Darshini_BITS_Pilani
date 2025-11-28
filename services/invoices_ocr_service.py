@@ -168,13 +168,18 @@ class InvoicesOCRService:
         """Extract data using LLM"""
         prompt = generate_extraction_prompt()
         schema = get_json_schema()
-        
+
         result = self.llm_wrapper.process_with_structured_output(
             image_paths=image_paths,
             prompt=prompt,
             json_schema=schema
         )
-        
+
+        # Log what the LLM extracted
+        extracted_data, token_usage = result
+        total_items = sum(len(page.get('bill_items', [])) for page in extracted_data.get('pagewise_line_items', []))
+        logger.info(f"LLM extracted {total_items} items from {len(image_paths)} images before validation")
+
         return result
     
     def _calculate_totals(self, extracted_data: Dict[str, Any]) -> InvoiceData:
@@ -191,8 +196,10 @@ class InvoicesOCRService:
         logger.info("Validating and cleaning extracted data")
         validated_data = validate_and_clean_invoice_data(extracted_data)
 
-        # Remove duplicates
-        cleaned_data = remove_duplicate_items(validated_data)
+        # IMPORTANT: DO NOT remove duplicates - invoices often have repeated line items
+        # Each row in the invoice table is a separate billable item, even if identical
+        # The LLM is instructed to extract EVERY row, including duplicates
+        cleaned_data = validated_data  # Skip duplicate removal
 
         pagewise_items = []
         total_count = 0

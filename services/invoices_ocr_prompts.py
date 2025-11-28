@@ -13,67 +13,101 @@ def generate_extraction_prompt() -> str:
     """
     prompt = """You are an expert invoice data extraction system. Analyze the provided invoice images and extract ALL line items with their details.
 
-CRITICAL: You MUST extract data from the invoice. Do NOT return empty results unless the invoice is completely blank.
+CRITICAL INSTRUCTIONS:
 
-IMPORTANT INSTRUCTIONS:
+1. EXTRACT EVERY SINGLE LINE ITEM:
+   - Extract EVERY row from the invoice table, even if items have the same name
+   - DO NOT skip or merge items with identical names
+   - Each row in the table is a SEPARATE billable item that must be extracted
+   - If you see 10 rows of "IP CONSULTATION CHARGES", extract ALL 10 as separate items
+   - Count each row individually - do NOT summarize or combine
 
-1. PAGEWISE EXTRACTION:
+2. PAGEWISE EXTRACTION:
    - Track which page number each line item appears on
    - Page numbers should be strings (e.g., "1", "2", "3")
    - Group all items by their page number
    - Classify each page type as one of: "Bill Detail", "Final Bill", or "Pharmacy"
    - NEVER use null for page_type - always choose one of the three options
-   - If unsure about page type, default to "Bill Detail"
 
-2. FIELD EXTRACTION:
+3. FIELD EXTRACTION:
    For each line item, extract these exact fields:
-   - item_name: The description or name of the item/service (preserve exactly as shown, replace any quotes with single quotes)
-   - item_quantity: The quantity (as a number, e.g., 1.0, 2.5, 10.0) - if not visible, use 1.0
+   - item_name: The description or name of the item/service (preserve exactly as shown)
+   - item_quantity: The quantity (as a number, e.g., 1.0, 2.5, 10.0)
    - item_rate: The unit price or rate (as a number, e.g., 100.00, 250.50)
    - item_amount: The total amount for this line item (quantity × rate)
 
-3. DATA FORMATTING:
+4. DATA FORMATTING:
    - Remove currency symbols (₹, $, etc.) from all numeric values
-   - Convert all amounts to decimal numbers (e.g., 1,000.00 → 1000.00, remove commas)
+   - Convert all amounts to decimal numbers (e.g., 1,000.00 → 1000.00)
    - Keep quantities as decimal numbers (e.g., 3 → 3.0, 2.5 → 2.5)
    - Preserve full item names/descriptions as they appear
-   - CRITICAL: Replace double quotes (") in item names with single quotes (') to avoid JSON errors
-   - Replace newlines in item names with spaces
-   - Remove any control characters from item names
+   - IMPORTANT: Ensure all item_name strings are properly formatted for JSON (no unescaped quotes or newlines)
 
-4. CALCULATION RULES:
+5. CALCULATION RULES:
    - item_amount should equal item_quantity × item_rate
    - If only item_amount is visible, and quantity is 1, then item_rate = item_amount
    - Extract ALL line items from ALL pages
-   - Be thorough - don't skip items even if the format is unusual
 
-5. WHAT TO EXTRACT:
-   - Extract individual line items (products, services, charges, fees, tests, procedures, etc.)
+6. WHAT TO EXTRACT:
+   - Extract individual line items (products, services, charges, fees, etc.)
+   - Extract EVERY row, even if the item name repeats
    - DO NOT extract sub-totals, tax totals, or grand totals as line items
-   - Only extract actual billable items
-   - Include items even if some fields are missing (use reasonable defaults)
+   - Only extract actual billable items from the main table
 
-6. MULTI-PAGE HANDLING:
+7. MULTI-PAGE HANDLING:
    - If an invoice spans multiple pages, extract items from ALL pages
    - Assign correct page numbers to each item
-   - Do not duplicate items across pages
-   - Process each page thoroughly
+   - Do not skip any pages
 
-7. JSON OUTPUT REQUIREMENTS:
-   - Return ONLY valid, well-formed JSON
-   - NO markdown formatting, NO code blocks, NO extra text
-   - Ensure all strings are properly escaped and complete
+8. REPEATED ITEMS - IMPORTANT RULES:
+   - Items are ONLY duplicates if ALL fields match exactly: name, quantity, rate, AND amount
+   - If ANY field is different, treat as SEPARATE items:
+     * Same name but different quantity → SEPARATE items
+     * Same name but different rate → SEPARATE items
+     * Same name but different amount → SEPARATE items
+   - Example: "IP CONSULTATION CHARGES" appears 10 times with same values → Extract ALL 10
+   - Example: "Medicine A" with qty=1, rate=100 AND "Medicine A" with qty=2, rate=100 → Extract BOTH
+   - Each row in the invoice table = one item in your output
+   - Do NOT merge or summarize items, even if they have the same name
+
+9. JSON OUTPUT REQUIREMENTS:
+   - Return ONLY valid JSON - no markdown, no code blocks
+   - Ensure all strings are properly escaped
    - All numeric values must be valid numbers (not strings)
    - page_type must be one of: "Bill Detail", "Final Bill", "Pharmacy" (NEVER null)
-   - NEVER leave strings unterminated
-   - Ensure all opening braces { and brackets [ have matching closing braces } and brackets ]
 
-8. HANDLING LARGE INVOICES:
-   - For invoices with many items, ensure you extract ALL items
-   - Don't truncate your output - complete the full JSON structure
-   - If you encounter any items, make sure to close all JSON objects properly
+CONCRETE EXAMPLE - How to extract repeated items:
 
-Extract all line items and return them in the specified JSON format. Double-check that your JSON is valid and complete before responding."""
+If you see this invoice table:
+```
+Item Name                  | Qty | Rate    | Amount
+IP CONSULTATION CHARGES    | 1   | 1000.00 | 1000.00
+IP CONSULTATION CHARGES    | 1   | 1000.00 | 1000.00
+IP CONSULTATION CHARGES    | 1   | 1000.00 | 1000.00
+```
+
+You MUST return:
+```json
+{
+  "bill_items": [
+    {"item_name": "IP CONSULTATION CHARGES", "item_quantity": 1.0, "item_rate": 1000.0, "item_amount": 1000.0},
+    {"item_name": "IP CONSULTATION CHARGES", "item_quantity": 1.0, "item_rate": 1000.0, "item_amount": 1000.0},
+    {"item_name": "IP CONSULTATION CHARGES", "item_quantity": 1.0, "item_rate": 1000.0, "item_amount": 1000.0}
+  ]
+}
+```
+
+DO NOT return just one item! Extract each row separately.
+
+REMEMBER: Extract EVERY row from the invoice table. If you see 50 line items, return 50 items. Do not skip or merge anything.
+
+FINAL CHECK BEFORE RESPONDING:
+1. Count the total number of rows in ALL invoice tables across ALL pages
+2. Count the number of items in your JSON response
+3. These numbers MUST be equal - if they're not, you've skipped items
+4. Go back and add any missing items before responding
+
+Extract all line items and return them in the specified JSON format."""
 
     return prompt
 
