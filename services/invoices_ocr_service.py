@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 import httpx
 from pdf2image import convert_from_path
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 import pillow_heif
 
 from config.config import settings
@@ -127,41 +127,88 @@ class InvoicesOCRService:
             return self._process_image_file(document_path)
     
     def _convert_pdf_to_images(self, pdf_path: str) -> List[str]:
-        """Convert PDF to images"""
-        # Convert PDF to images
+        """Convert PDF to images with configurable quality"""
+        logger.info(f"Converting PDF to images at {settings.pdf_dpi} DPI")
+
+        # Convert PDF to images with higher DPI
         images = convert_from_path(
             pdf_path,
-            dpi=200,
+            dpi=settings.pdf_dpi,
             fmt="jpeg",
             thread_count=2
         )
-        
+
         # Check page limit
         if len(images) > self.max_pages:
             raise ValueError(
                 f"PDF has {len(images)} pages, exceeds limit of {self.max_pages}"
             )
-        
-        # Save images
+
+        # Save images with enhancement
         image_paths = []
         for i, image in enumerate(images):
+            # Enhance image if enabled
+            if settings.enable_image_enhancement:
+                image = self._enhance_image(image)
+
             image_path = os.path.join(self.temp_dir, f"page_{i+1}.jpg")
-            image.save(image_path, "JPEG", quality=85)
+            image.save(image_path, "JPEG", quality=settings.image_quality)
             image_paths.append(image_path)
-        
+            logger.debug(f"Saved page {i+1} with quality={settings.image_quality}")
+
         return image_paths
     
+    def _enhance_image(self, image: Image.Image) -> Image.Image:
+        """
+        Enhance image quality for better OCR
+
+        Args:
+            image: PIL Image object
+
+        Returns:
+            Enhanced PIL Image
+        """
+        try:
+            # Convert to RGB if needed
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+
+            # Increase contrast (helps with faint text)
+            enhancer = ImageEnhance.Contrast(image)
+            image = enhancer.enhance(1.3)  # 1.3x contrast boost
+
+            # Increase sharpness (helps with blurry scans)
+            enhancer = ImageEnhance.Sharpness(image)
+            image = enhancer.enhance(1.5)  # 1.5x sharpness boost
+
+            # Optional: Reduce noise (helps with grainy scans)
+            # image = image.filter(ImageFilter.MedianFilter(size=3))
+
+            logger.debug("Image enhancement applied")
+            return image
+
+        except Exception as e:
+            logger.warning(f"Image enhancement failed: {e}, using original")
+            return image
+
     def _process_image_file(self, image_path: str) -> List[str]:
-        """Process single image file"""
-        # Open and convert to RGB
+        """Process single image file with enhancement"""
+        # Open image
         image = Image.open(image_path)
+
+        # Convert to RGB
         if image.mode != "RGB":
             image = image.convert("RGB")
-        
-        # Save as JPEG
+
+        # Enhance if enabled
+        if settings.enable_image_enhancement:
+            image = self._enhance_image(image)
+
+        # Save as high-quality JPEG
         output_path = os.path.join(self.temp_dir, "page_1.jpg")
-        image.save(output_path, "JPEG", quality=85)
-        
+        image.save(output_path, "JPEG", quality=settings.image_quality)
+        logger.debug(f"Processed image with quality={settings.image_quality}")
+
         return [output_path]
     
     def _extract_data_with_llm(self, image_paths: List[str]) -> Dict[str, Any]:

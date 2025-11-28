@@ -66,6 +66,55 @@ def validate_numeric_field(value: Any, field_name: str, default: float = 0.0) ->
         return default
 
 
+def is_discount_or_total_row(item_name: str) -> bool:
+    """
+    Check if item name indicates a discount or total row (not a billable item)
+
+    Args:
+        item_name: Item name to check
+
+    Returns:
+        True if this is a discount/total row, False otherwise
+    """
+    if not item_name:
+        return False
+
+    name_upper = item_name.upper().strip()
+
+    # Strong keywords that should always filter (very specific to non-billable rows)
+    strong_keywords = [
+        'DISCOUNT', 'SUBTOTAL', 'SUB TOTAL', 'SUB-TOTAL',
+        'GRAND TOTAL', 'NET TOTAL', 'AMOUNT TOTAL',
+        'ROUND OFF', 'ROUNDING'
+    ]
+
+    for keyword in strong_keywords:
+        if keyword in name_upper:
+            logger.debug(f"Filtering out non-billable row: {item_name} (matched keyword: {keyword})")
+            return True
+
+    # Exact match keywords (filter only if the name is EXACTLY or PRIMARILY this)
+    # This prevents filtering "MEDICINE GST" but filters "GST" or "TOTAL GST"
+    exact_keywords = ['GST', 'CGST', 'SGST', 'IGST', 'TAX', 'TOTAL']
+
+    # Check if name is exactly one of these keywords or starts/ends with them
+    for keyword in exact_keywords:
+        # Exact match
+        if name_upper == keyword:
+            logger.debug(f"Filtering out non-billable row: {item_name} (exact match: {keyword})")
+            return True
+        # Starts with keyword followed by space or punctuation
+        if name_upper.startswith(keyword + ' ') or name_upper.startswith(keyword + ':'):
+            logger.debug(f"Filtering out non-billable row: {item_name} (starts with: {keyword})")
+            return True
+        # Ends with space/punctuation followed by keyword
+        if name_upper.endswith(' ' + keyword) or name_upper.endswith(':' + keyword):
+            logger.debug(f"Filtering out non-billable row: {item_name} (ends with: {keyword})")
+            return True
+
+    return False
+
+
 def validate_bill_item(item: Dict[str, Any]) -> Dict[str, Any]:
     """
     Validate and clean a single bill item
@@ -189,6 +238,25 @@ def validate_and_clean_invoice_data(data: Dict[str, Any]) -> Dict[str, Any]:
                 continue
 
             validated_item = validate_bill_item(item)
+
+            # Skip discount/total rows
+            if is_discount_or_total_row(validated_item['item_name']):
+                continue
+
+            # Skip items with negative amounts (usually discounts)
+            # Note: We check the raw amount before abs() is applied in validation
+            raw_amount = item.get('item_amount', 0)
+            try:
+                if isinstance(raw_amount, str):
+                    raw_amount = float(raw_amount.replace(',', ''))
+                else:
+                    raw_amount = float(raw_amount)
+
+                if raw_amount < 0:
+                    logger.debug(f"Filtering out item with negative amount: {validated_item['item_name']} (amount: {raw_amount})")
+                    continue
+            except (ValueError, TypeError):
+                pass  # If we can't parse, let it through and rely on name-based filtering
 
             # Only add items with valid names
             if validated_item['item_name'] and validated_item['item_name'] != 'Unknown Item':

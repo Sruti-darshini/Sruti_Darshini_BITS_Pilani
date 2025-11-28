@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 10
     pages_per_chunk: int = 3  # Process large docs in chunks to avoid truncation
 
+    # Image Processing
+    pdf_dpi: int = 300  # DPI for PDF to image conversion (higher = better quality, 200-400 recommended)
+    image_quality: int = 95  # JPEG quality (1-100, higher = better)
+    enable_image_enhancement: bool = True  # Enable contrast/sharpness enhancement
+
     # LLM Settings
     llm_temperature: float = 0.1
     llm_timeout: int = 60
