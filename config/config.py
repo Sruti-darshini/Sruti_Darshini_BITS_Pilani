@@ -24,17 +24,17 @@ class Settings(BaseSettings):
     # Processing Limits
     max_pages_per_invoice: int = 50
     max_file_size_mb: int = 10
-    pages_per_chunk: int = 3  # Process large docs in chunks to avoid truncation
+    pages_per_chunk: int = 3  # Optimized for speed - 3 pages fits in 512MB with 300 DPI
 
-    # Image Processing (optimized for low memory environments like Render free tier)
-    pdf_dpi: int = 200  # DPI for PDF to image conversion (150 for low memory, 200-300 for better quality)
-    image_quality: int = 80  # JPEG quality (1-100, 75 for low memory, 85-95 for better quality)
-    enable_image_enhancement: bool = False  # Disable for low memory (uses extra RAM)
+    # Image Processing
+    pdf_dpi: int = 400
+    image_quality: int = 100
+    enable_image_enhancement: bool = True
 
     # LLM Settings
     llm_temperature: float = 0.1
-    llm_timeout: int = 60
-    max_output_tokens: int = 8192  # Maximum tokens for LLM response
+    llm_timeout: int = 180  # Longer timeout for large invoices
+    max_output_tokens: int = 16384  # Increased for complex invoices
     
     # Logging
     log_level: str = "INFO"

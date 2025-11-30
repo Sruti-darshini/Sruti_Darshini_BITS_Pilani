@@ -136,6 +136,13 @@ class LLMWrapper:
                 # Continue with other chunks
                 continue
 
+        # Renumber pages sequentially (1, 2, 3...) instead of using extracted page numbers
+        # This handles jumbled/out-of-order invoices
+        for idx, page in enumerate(all_pagewise_items):
+            page["page_no"] = str(idx + 1)
+
+        logger.info(f"Renumbered {len(all_pagewise_items)} pages sequentially")
+
         # Combine results
         combined_result = {
             "pagewise_line_items": all_pagewise_items

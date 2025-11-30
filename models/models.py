@@ -22,7 +22,7 @@ class PagewiseLineItems(BaseModel):
     """Line items grouped by page"""
     page_no: str = Field(..., description="Page number as string")
     page_type: Literal["Bill Detail", "Final Bill", "Pharmacy"] = Field(
-        ..., 
+        ...,
         description="Type of page: Bill Detail, Final Bill, or Pharmacy"
     )
     bill_items: List[BillItem] = Field(default_factory=list, description="All items on this page")

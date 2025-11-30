@@ -281,6 +281,11 @@ class InvoicesOCRService:
                     bill_items=bill_items
                 ))
 
+        # Renumber pages sequentially (1, 2, 3...) instead of using extracted page numbers
+        # This handles jumbled/out-of-order invoices
+        for idx, page in enumerate(pagewise_items):
+            page.page_no = str(idx + 1)
+
         logger.info(f"Extracted {total_count} items across {len(pagewise_items)} pages")
 
         return InvoiceData(
