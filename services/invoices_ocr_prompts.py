@@ -103,6 +103,97 @@ BED CHARGE GENERAL WARD    1500.00
 ```
 Extract: rate=1500.00, qty=1.00, amount=1500.00
 
+Format D: ⚠️ **PHARMACY BILLS - Quantity PREFIX in Item Name** ⚠️
+```
+3 x Igurat 25          Batch: 948    Rs: 942.00
+20 caps Brilamox       Batch: 821    Rs: 238.00
+5 tabs Paracetamol     Batch: 123    Rs: 50.00
+```
+
+🔥 CRITICAL PHARMACY EXTRACTION RULES:
+
+1. **DETECT QUANTITY PREFIX PATTERNS:**
+   Look for these patterns at the START of item names:
+   - "3 x Medicine" → qty=3, name="Medicine"
+   - "20 caps Medicine" → qty=20, name="Medicine"
+   - "5 tabs Medicine" → qty=5, name="Medicine"
+   - "10 tab Medicine" → qty=10, name="Medicine"
+   - "2x Medicine" → qty=2, name="Medicine" (no space)
+   - "15 units Medicine" → qty=15, name="Medicine"
+
+2. **EXTRACTION STEPS:**
+   Step 1: Read the full item name text
+   Step 2: Check if it starts with a NUMBER followed by:
+           - "x" or "X"
+           - "caps" or "cap"
+           - "tabs" or "tab"
+           - "units" or "unit"
+   Step 3: If pattern found:
+           - Extract the NUMBER as item_quantity
+           - Remove the quantity prefix to get clean item_name
+           - Calculate item_rate = item_amount ÷ item_quantity
+   Step 4: If NO pattern found:
+           - Look for separate Qty column
+           - If no Qty column, default to qty=1.0
+
+3. **EXAMPLES:**
+
+   Example 1:
+   ```
+   Text: "3 x Igurat 25"
+   Amount: 942.00
+   ```
+   ✅ CORRECT Extraction:
+   - item_name: "Igurat 25"
+   - item_quantity: 3.0
+   - item_amount: 942.0
+   - item_rate: 942.0 ÷ 3.0 = 314.0
+
+   ❌ WRONG:
+   - item_name: "3 x Igurat 25" (includes quantity prefix)
+   - item_quantity: 1.0 (missed the "3 x")
+
+   Example 2:
+   ```
+   Text: "20 caps Brilamox"
+   Amount: 238.00
+   ```
+   ✅ CORRECT Extraction:
+   - item_name: "Brilamox"
+   - item_quantity: 20.0
+   - item_amount: 238.0
+   - item_rate: 238.0 ÷ 20.0 = 11.9
+
+   ❌ WRONG:
+   - item_name: "20 caps Brilamox" (includes quantity prefix)
+   - item_quantity: 1.0 (missed the "20 caps")
+
+   Example 3:
+   ```
+   Text: "5 tabs Paracetamol 500mg"
+   Amount: 50.00
+   ```
+   ✅ CORRECT Extraction:
+   - item_name: "Paracetamol 500mg"
+   - item_quantity: 5.0
+   - item_amount: 50.0
+   - item_rate: 50.0 ÷ 5.0 = 10.0
+
+4. **RATE CALCULATION RULE:**
+   - When quantity is in item name: item_rate = item_amount ÷ item_quantity
+   - When quantity is in column: Use the rate from Rate column
+   - ALWAYS verify: item_amount ≈ item_rate × item_quantity (allow 5% rounding)
+
+5. **CLEAN ITEM NAME:**
+   After extracting quantity, remove these prefixes:
+   - "3 x " → remove
+   - "20 caps " → remove
+   - "5 tabs " → remove
+   - "10 tab " → remove
+   - "2x " → remove (no space)
+
+   Keep only the medicine/product name
+
 ⛔ WHAT NOT TO DO - COMMON MISTAKES TO AVOID:
 
 MISTAKE #1: Mixing up Rate and Quantity
@@ -343,6 +434,17 @@ VALIDATION CHECKS (Do these before responding):
      * Has Grand Total + department totals → "Final Bill"
      * Flat list of medicines → "Pharmacy"
 
+✓ Check 9: PHARMACY QUANTITY PREFIX HANDLING
+   - Look for item names starting with patterns: "3 x", "20 caps", "5 tabs", etc.
+   - If found, verify:
+     * item_quantity = the number from prefix (e.g., "3 x" → qty=3.0)
+     * item_name = medicine name WITHOUT the quantity prefix
+     * item_rate = item_amount ÷ item_quantity
+   - Examples to verify:
+     * "3 x Igurat 25" with amount 942 → qty=3.0, name="Igurat 25", rate=314.0 ✓
+     * "20 caps Brilamox" with amount 238 → qty=20.0, name="Brilamox", rate=11.9 ✓
+   - If you see quantity in item name but qty=1.0 → WRONG, fix it!
+
 ⚠️ CRITICAL: If you're extracting from a POOR QUALITY scan:
 - Expect to work harder to find all rows
 - Some text will be faint - that's OK, extract what you can
@@ -445,6 +547,82 @@ Okamel-500        BATCH456  2   50.00  100.00
 Paracetamol 500mg BATCH789  3   10.00   30.00
 ```
 → page_type: "Pharmacy" (flat list of medicines, no sections)
+
+EXAMPLE - PHARMACY BILL WITH QUANTITY PREFIX:
+
+Invoice shows (handwritten pharmacy bill):
+```
+┌─────┬──────────────────────────┬─────────┬─────────┬───────┬────────┬──────┐
+│ Qty │ Name of the Drugs        │ Batch No│ Exp.Date│ Mfg.  │ Rs.    │ P.   │
+├─────┼──────────────────────────┼─────────┼─────────┼───────┼────────┼──────┤
+│ 3xJp.l │ J Gujarat 25          │ 948     │ 10/26   │ 24    │ 942.00 │      │
+│ 20ufabs │ Brilamox             │ 821     │ 8/26    │ 3h5   │ 238.00 │      │
+│     │                          │         │         │       │        │      │
+│     │                          │         │         │ Total │1180.00 │      │
+└─────┴──────────────────────────┴─────────┴─────────┴───────┴────────┴──────┘
+Date: 24/9/25
+```
+
+Reading the Qty column:
+- Row 1: "3xJp.l" → This is "3 x [something]" (quantity prefix format)
+- Row 2: "20ufabs" → This is "20 [caps/tabs]" (quantity prefix format)
+
+Reading the Name column:
+- Row 1: "J Gujarat 25" → This is the medicine name (likely "Igurat 25")
+- Row 2: "Brilamox" → This is the medicine name
+
+✅ CORRECT Extraction:
+```json
+{
+  "pagewise_line_items": [
+    {
+      "page_no": "1",
+      "page_type": "Pharmacy",
+      "bill_items": [
+        {
+          "item_name": "Igurat 25",
+          "item_quantity": 3.0,
+          "item_amount": 942.0,
+          "item_rate": 314.0
+        },
+        {
+          "item_name": "Brilamox",
+          "item_quantity": 20.0,
+          "item_amount": 238.0,
+          "item_rate": 11.9
+        }
+      ]
+    }
+  ]
+}
+```
+
+Explanation:
+- Row 1: "3xJp.l J Gujarat 25" → Combined text is "3 x Igurat 25"
+  * Detected pattern: "3 x" at start
+  * Extracted quantity: 3.0
+  * Cleaned name: "Igurat 25"
+  * Calculated rate: 942.0 ÷ 3.0 = 314.0
+- Row 2: "20ufabs Brilamox" → Combined text is "20 caps Brilamox" or similar
+  * Detected pattern: "20 caps" at start
+  * Extracted quantity: 20.0
+  * Cleaned name: "Brilamox"
+  * Calculated rate: 238.0 ÷ 20.0 = 11.9
+- Skipped "Total 1180.00" row (summary row, not an item)
+
+❌ WRONG Extraction:
+```json
+{
+  "bill_items": [
+    {
+      "item_name": "3xJp.l J Gujarat 25",  ❌ Should not include quantity prefix
+      "item_quantity": 1.0,                 ❌ Should be 3.0
+      "item_amount": 942.0,
+      "item_rate": 942.0                    ❌ Should be 314.0
+    }
+  ]
+}
+```
 
 EXAMPLE - POOR QUALITY SCAN WITH MISSING ROWS:
 
