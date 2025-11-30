@@ -24,12 +24,12 @@ class Settings(BaseSettings):
     # Processing Limits
     max_pages_per_invoice: int = 50
     max_file_size_mb: int = 10
-    pages_per_chunk: int = 3  # Optimized for speed - 3 pages fits in 512MB with 300 DPI
+    pages_per_chunk: int = 2  # Safe for 512MB RAM - prevents OOM crashes
 
-    # Image Processing
-    pdf_dpi: int = 400
-    image_quality: int = 100
-    enable_image_enhancement: bool = True
+    # Image Processing (Balanced for 512MB RAM + Good Accuracy)
+    pdf_dpi: int = 300  # Lower memory usage while maintaining good quality
+    image_quality: int = 100  # Keep max quality for better accuracy
+    enable_image_enhancement: bool = False  # Disable to save RAM during processing
 
     # LLM Settings
     llm_temperature: float = 0.1
