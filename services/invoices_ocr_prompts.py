@@ -190,7 +190,27 @@ EXTRACTION RULES:
    - Same name, same values (all fields identical) → Still extract EACH occurrence
    - Same name, different values → Definitely extract each as separate item
 
-4. PAGE CLASSIFICATION (MUST ALWAYS BE SET - NEVER NULL):
+4. CRITICAL: ONE IMAGE = ONE PAGE OBJECT
+
+   IMPORTANT: You are processing IMAGES of invoice pages. Each IMAGE you see is ONE page in the document.
+
+   **If one image contains multiple invoice slips/receipts:**
+   - Extract ALL items from ALL slips on that image
+   - Put them ALL into ONE page object
+   - Use the same page_no for all items from that image
+   - Do NOT create separate page objects for each slip
+
+   Example:
+   - Image shows 2 yellow invoice slips side by side
+   - Extract all items from BOTH slips
+   - Put them in ONE page object (e.g., page_no: "3")
+   - Result: One page_no with all items from both slips ✓
+
+   DO NOT:
+   - Create page_no "3" for first slip and page_no "4" for second slip ❌
+   - Split items from the same image into different page objects ❌
+
+5. PAGE CLASSIFICATION (MUST ALWAYS BE SET - NEVER NULL):
 
    You MUST classify each page as one of these three types:
 
@@ -258,8 +278,14 @@ EXTRACTION RULES:
    - Tax totals ("Tax: ...", "GST: ...", "CGST: ...", "SGST: ...")
    - DISCOUNT rows ("GST DISCOUNT", "DISCOUNT", "Cash Discount", "Special Discount", etc.)
    - Any row with negative amounts (these are usually discounts/refunds)
-   - Section headers
+   - Section headers (rows that group items but have no quantity/amount themselves)
    - Summary rows
+   - **GROUP HEADER ROWS**: Rows that:
+     * Have a service/item name with code (e.g., "Consultation (999311)")
+     * But NO quantity, rate, or amount in the rightmost columns
+     * Are followed by indented sub-items with actual data
+     * Act as category headers for items below them
+     * Example: Skip "Consultation (999311)" if followed by "OP Consultation - Follow Up Visit" with actual values
 
 6. FIELD FORMATTING:
    - Remove currency symbols (₹, $)
@@ -298,11 +324,14 @@ VALIDATION CHECKS (Do these before responding):
    - Verify rate from rate column, qty from qty column
    - No mixing of column values
 
-✓ Check 7: NO DISCOUNT/TOTAL ROWS
+✓ Check 7: NO DISCOUNT/TOTAL/HEADER ROWS
    - Check each extracted item name
    - If name contains "DISCOUNT", "TOTAL", "TAX", "GST" → Remove it
    - If amount is negative → Likely a discount, remove it
-   - Only actual products/services should remain
+   - If row has service name with code like "(999311)" but NO actual quantity/amount data → It's a header, remove it
+   - Only extract rows that have COMPLETE data: name + quantity + rate + amount
+   - Skip group headers that categorize items below them
+   - Only actual billable products/services with full data should remain
 
 ✓ Check 8: PAGE TYPE IS ALWAYS SET
    - EVERY page MUST have a page_type value
@@ -320,7 +349,7 @@ VALIDATION CHECKS (Do these before responding):
 - ROW COUNT is your primary verification tool
 - Better to extract 22/22 rows with some uncertain text than to extract only 18/22 rows perfectly
 
-EXAMPLE - CORRECT EXTRACTION:
+EXAMPLE 1 - CORRECT EXTRACTION:
 
 Invoice shows:
 ```
@@ -349,6 +378,41 @@ CORRECT JSON:
 Note: 4 ACTUAL items in table → 4 items in JSON ✓
 Note: "Sub Total", "GST DISCOUNT", "Total" are NOT included (correctly skipped) ✓
 Note: Item #3 has qty=1.0 (not 2.0) - read from correct row ✓
+
+EXAMPLE 2 - SKIPPING GROUP HEADERS:
+
+Invoice shows:
+```
+S.No | Service Type/Service Name           | Department   | Qty | Ref Tariff | Amount (INR)
+1    | Consultation (999311)               |              |     |            |
+  1  | OP Consultation - Follow Up Visit   | Consultation | 1   | 2,000.00   | 2,000.00
+```
+
+❌ WRONG - Extracting the header:
+```json
+{
+  "bill_items": [
+    {"item_name": "Consultation (999311)", "item_rate": 2000.0, "item_quantity": 1.0, "item_amount": 2000.0},
+    {"item_name": "OP Consultation - Follow Up Visit", "item_rate": 2000.0, "item_quantity": 1.0, "item_amount": 2000.0}
+  ]
+}
+```
+
+✅ CORRECT - Skipping the header, extracting only the actual item:
+```json
+{
+  "bill_items": [
+    {"item_name": "OP Consultation - Follow Up Visit", "item_rate": 2000.0, "item_quantity": 1.0, "item_amount": 2000.0}
+  ]
+}
+```
+
+Why skip "Consultation (999311)"?
+- It's a GROUP HEADER that categorizes items below it
+- The row has NO quantity (empty cell)
+- The row has NO amount in the rightmost column for that row
+- The actual billable item is "OP Consultation - Follow Up Visit" which IS indented/sub-item
+- Only extract rows with COMPLETE data: name + quantity + rate + amount
 
 EXAMPLE - PAGE TYPE CLASSIFICATION:
 
@@ -428,10 +492,12 @@ DETECTION STRATEGY FOR MISSING ROWS:
    - If mismatch, find the missing rows
 
 FINAL REMINDER:
+- **ONE IMAGE = ONE PAGE OBJECT**: If an image has 2 invoice slips, extract ALL items into ONE page object
 - Extract EVERY billable item row as a SEPARATE item
 - DO NOT extract discount rows (GST DISCOUNT, Cash Discount, etc.)
 - DO NOT extract total/subtotal rows (Total, Sub Total, Grand Total, etc.)
 - DO NOT extract tax summary rows (GST, CGST, SGST when shown as totals)
+- DO NOT extract group header rows (rows with service codes but no quantity/amount)
 - Match columns CORRECTLY (don't mix up rate/qty/amount)
 - COUNT ROWS and verify you didn't miss any ACTUAL billable items
 - ALWAYS SET page_type for EVERY page (NEVER null/empty)

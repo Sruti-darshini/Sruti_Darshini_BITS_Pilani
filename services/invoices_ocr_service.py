@@ -5,6 +5,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import List, Dict, Any
+from urllib.parse import urlparse
 import httpx
 from pdf2image import convert_from_path
 from PIL import Image, ImageEnhance, ImageFilter
@@ -91,22 +92,26 @@ class InvoicesOCRService:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url)
             response.raise_for_status()
-            
-            # Determine file extension from content type or URL
+
+            # Parse URL to get clean path without query parameters
+            parsed_url = urlparse(url)
+            clean_path = parsed_url.path  # Gets path without query params
+
+            # Determine file extension from content type or clean URL path
             content_type = response.headers.get("content-type", "")
             if "pdf" in content_type.lower():
                 ext = ".pdf"
             elif "image" in content_type.lower():
-                # Try to get extension from URL
-                ext = Path(url).suffix or ".jpg"
+                # Try to get extension from clean URL path
+                ext = Path(clean_path).suffix or ".jpg"
             else:
-                ext = Path(url).suffix or ".pdf"
-            
-            # Save to temp file
+                ext = Path(clean_path).suffix or ".pdf"
+
+            # Save to temp file with clean extension
             temp_path = os.path.join(self.temp_dir, f"document{ext}")
             with open(temp_path, "wb") as f:
                 f.write(response.content)
-            
+
             return temp_path
     
     def _convert_to_images(self, document_path: str) -> List[str]:
