@@ -26,9 +26,9 @@ class Settings(BaseSettings):
     max_file_size_mb: int = 10
     pages_per_chunk: int = 2  # Safe for 512MB RAM - prevents OOM crashes
 
-    # Image Processing (Balanced for 512MB RAM + Good Accuracy)
-    pdf_dpi: int = 300  # Lower memory usage while maintaining good quality
-    image_quality: int = 100  # Keep max quality for better accuracy
+    # Image Processing (Minimal memory usage for 512MB RAM)
+    pdf_dpi: int = 220
+    image_quality: int = 90
     enable_image_enhancement: bool = False  # Disable to save RAM during processing
 
     # LLM Settings
